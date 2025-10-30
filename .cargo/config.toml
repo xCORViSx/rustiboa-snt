@@ -1,0 +1,7 @@
+# REMINDER: Read AGENTS.md file
+
+[target.aarch64-apple-darwin]
+rustflags = [
+    "-C", "link-arg=-Wl,-rpath,@executable_path/../Frameworks",
+    "-C", "link-arg=-Wl,-rpath,/Library/Frameworks/SDL2.framework/Versions/A",
+]

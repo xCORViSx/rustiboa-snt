@@ -1,0 +1,1 @@
+/Users/macbookpro/Documents/DEVshi/[AgentMasta]/AGENTS.md

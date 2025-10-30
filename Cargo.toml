@@ -1,0 +1,20 @@
+# REMINDER: Read AGENTS.md file before continuing development
+
+[package]
+name = "rustiboa-snt"
+version = "0.1.0"
+edition = "2024"
+authors = ["xCORViSx"]
+description = "A DMG (original Game Boy) emulator written in Rust"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/xCORViSx/rustiboa-snt"
+keywords = ["gameboy", "emulator", "dmg", "gameboy-emulator"]
+categories = ["emulators", "games"]
+
+[dependencies]
+sdl2 = { version = "0.38", features = ["bundled"] }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

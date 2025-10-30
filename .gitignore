@@ -1,0 +1,21 @@
+# Rust
+/target/
+Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# ROMs (don't commit copyrighted content)
+*.gb
+*.gbc
+
+# Save files
+*.sav
