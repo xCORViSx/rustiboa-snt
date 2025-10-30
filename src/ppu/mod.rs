@@ -76,6 +76,13 @@ impl Ppu {
     /// This advances the PPU by one dot (T-cycle), updating its state and potentially
     /// rendering pixels. Returns true when a frame is complete (VBlank starts).
     pub fn tick(&mut self, mmu: &mut crate::mmu::Mmu) -> bool {
+        // Check if LCD is enabled (LCDC bit 7)
+        let lcdc = mmu.read_byte(0xFF40);
+        if (lcdc & 0x80) == 0 {
+            // LCD is off - don't advance PPU
+            return false;
+        }
+        
         self.dots += 1;
         
         // We handle each PPU mode based on current state
@@ -96,7 +103,7 @@ impl Ppu {
                 self.fetch_pixel(mmu);
                 
                 // We try to push a pixel from FIFO to screen if we have enough
-                if self.bg_fifo.len() > 8 && self.x < 160 {
+                if !self.bg_fifo.is_empty() && self.x < 160 {
                     let color_id = self.bg_fifo.remove(0);
                     let color = self.get_color(color_id, mmu);
                     let index = (self.ly as usize * 160) + self.x as usize;
@@ -115,6 +122,7 @@ impl Ppu {
                 if self.dots >= 456 {
                     self.dots = 0;
                     self.ly += 1;
+                    mmu.write_byte(0xFF44, self.ly);  // Update LY register
                     
                     // After scanline 143, we enter VBlank
                     if self.ly >= 144 {
@@ -133,10 +141,12 @@ impl Ppu {
                 if self.dots >= 456 {
                     self.dots = 0;
                     self.ly += 1;
+                    mmu.write_byte(0xFF44, self.ly);  // Update LY register
                     
                     // After scanline 153, we restart from scanline 0
                     if self.ly > 153 {
                         self.ly = 0;
+                        mmu.write_byte(0xFF44, 0);
                         self.state = PpuState::OamSearch;
                     }
                 }

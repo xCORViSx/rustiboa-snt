@@ -104,10 +104,11 @@ fn main() {
             let frame_ready = ppu.tick(&mut mmu);
             
             // When a frame is complete, we render it to the screen
-            if frame_ready
-                && let Err(e) = display.render(&ppu.framebuffer) {
+            if frame_ready {
+                if let Err(e) = display.render(&ppu.framebuffer) {
                     eprintln!("Render error: {}", e);
                 }
+            }
         }
         
         // Update joypad state in MMU (write to 0xFF00 register)

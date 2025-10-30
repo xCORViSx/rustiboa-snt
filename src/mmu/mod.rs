@@ -25,13 +25,13 @@ pub struct Mmu {
     /// Whether boot ROM is currently enabled (starts true, switched off by writing to 0xFF50)
     boot_rom_enabled: bool,
     
-    /// Cartridge ROM (loaded from .gb file) - TODO: implement banking
+    /// Cartridge ROM (loaded from .gb file)
     rom: Vec<u8>,
     
     /// Video RAM - 8KB for tiles and tile maps
     vram: [u8; 0x2000],
     
-    /// External cartridge RAM - 8KB (size varies by cartridge) - TODO: implement
+    /// External cartridge RAM - 8KB (size varies by cartridge)
     eram: [u8; 0x2000],
     
     /// Work RAM - 8KB for general program use
@@ -48,13 +48,26 @@ pub struct Mmu {
     
     /// Interrupt Enable register
     ie: u8,
+    
+    // MBC1 state
+    /// Whether RAM is enabled (0x0A in 0x0000-0x1FFF enables it)
+    ram_enabled: bool,
+    
+    /// ROM bank number (5 bits, 0x01-0x1F, bank 0 not selectable for 0x4000-0x7FFF)
+    rom_bank: u8,
+    
+    /// RAM bank number (2 bits, 0x00-0x03) or upper bits of ROM bank in ROM banking mode
+    ram_bank: u8,
+    
+    /// Banking mode: false = ROM banking (default), true = RAM banking
+    banking_mode: bool,
 }
 
 impl Mmu {
     /// This creates a new MMU with all memory regions initialized.
     /// The rom parameter is the cartridge data loaded from a .gb file.
     pub fn new(rom: Vec<u8>) -> Self {
-        Mmu {
+        let mut mmu = Mmu {
             boot_rom: None,  // TODO: optionally load boot ROM
             boot_rom_enabled: false,  // Start with boot ROM disabled for now
             rom,
@@ -65,7 +78,18 @@ impl Mmu {
             io_registers: [0; 0x80],
             hram: [0; 0x7F],
             ie: 0,
-        }
+            // MBC1 starts with ROM bank 1 selected for 0x4000-0x7FFF
+            ram_enabled: false,
+            rom_bank: 1,
+            ram_bank: 0,
+            banking_mode: false,
+        };
+        
+        // Initialize I/O registers to post-boot state
+        mmu.write_byte(0xFF40, 0x91);  // LCDC: LCD on, BG on, BG tile map 9800
+        mmu.write_byte(0xFF47, 0xFC);  // BGP: Background palette
+        
+        mmu
     }
     
     /// This reads a byte from memory at the given address. We check which
@@ -81,19 +105,42 @@ impl Mmu {
                 }
             }
             0x0100..=0x3FFF => {
-                self.rom.get(address as usize).copied().unwrap_or(0xFF)
+                // ROM Bank 0 (or higher banks in RAM banking mode)
+                let bank = if self.banking_mode {
+                    // In RAM banking mode, upper 2 bits can be applied to bank 0 access
+                    (self.ram_bank << 5) as usize
+                } else {
+                    0
+                };
+                let addr = (bank * 0x4000) + (address as usize);
+                self.rom.get(addr).copied().unwrap_or(0xFF)
             }
-            // ROM Bank 1-N (TODO: implement banking)
+            // ROM Bank 1-N (switchable via MBC1)
             0x4000..=0x7FFF => {
-                self.rom.get(address as usize).copied().unwrap_or(0xFF)
+                // Combine 5-bit ROM bank with 2-bit RAM bank (used as upper ROM bits)
+                let bank = (self.rom_bank | (self.ram_bank << 5)) as usize;
+                // Bank 0 is not allowed for this region, treat as bank 1
+                let effective_bank = if bank == 0 { 1 } else { bank };
+                let addr = (effective_bank * 0x4000) + ((address - 0x4000) as usize);
+                self.rom.get(addr).copied().unwrap_or(0xFF)
             }
             // Video RAM
             0x8000..=0x9FFF => {
                 self.vram[(address - 0x8000) as usize]
             }
-            // External RAM (TODO: implement properly with banking)
+            // External RAM (MBC1 controlled)
             0xA000..=0xBFFF => {
-                self.eram[(address - 0xA000) as usize]
+                if !self.ram_enabled {
+                    return 0xFF;
+                }
+                let bank = if self.banking_mode { self.ram_bank } else { 0 };
+                let addr = ((bank as usize) * 0x2000) + ((address - 0xA000) as usize);
+                // Clamp to available RAM
+                if addr < self.eram.len() {
+                    self.eram[addr]
+                } else {
+                    0xFF
+                }
             }
             // Work RAM
             0xC000..=0xDFFF => {
@@ -126,17 +173,43 @@ impl Mmu {
     /// are read-only (like ROM) and writes to them may trigger special behavior.
     pub fn write_byte(&mut self, address: u16, value: u8) {
         match address {
-            // ROM area - writes don't modify ROM but may control banking
-            0x0000..=0x7FFF => {
-                // TODO: Implement MBC (Memory Bank Controller) logic
+            // MBC1: RAM Enable (0x0000-0x1FFF)
+            0x0000..=0x1FFF => {
+                // Writing 0x0A to this range enables RAM, anything else disables it
+                self.ram_enabled = (value & 0x0F) == 0x0A;
+            }
+            // MBC1: ROM Bank Number (0x2000-0x3FFF)
+            0x2000..=0x3FFF => {
+                // Lower 5 bits select ROM bank (1-31)
+                let bank = value & 0x1F;
+                // Bank 0 is treated as bank 1
+                self.rom_bank = if bank == 0 { 1 } else { bank };
+            }
+            // MBC1: RAM Bank Number or Upper ROM Bank bits (0x4000-0x5FFF)
+            0x4000..=0x5FFF => {
+                // Lower 2 bits - used as RAM bank or upper ROM bank bits
+                self.ram_bank = value & 0x03;
+            }
+            // MBC1: Banking Mode Select (0x6000-0x7FFF)
+            0x6000..=0x7FFF => {
+                // 0 = ROM banking mode (default), 1 = RAM banking mode
+                self.banking_mode = (value & 0x01) == 0x01;
             }
             // Video RAM
             0x8000..=0x9FFF => {
                 self.vram[(address - 0x8000) as usize] = value;
             }
-            // External RAM
+            // External RAM (MBC1 controlled)
             0xA000..=0xBFFF => {
-                self.eram[(address - 0xA000) as usize] = value;
+                if !self.ram_enabled {
+                    return;
+                }
+                let bank = if self.banking_mode { self.ram_bank } else { 0 };
+                let addr = ((bank as usize) * 0x2000) + ((address - 0xA000) as usize);
+                // Only write if within RAM bounds
+                if addr < self.eram.len() {
+                    self.eram[addr] = value;
+                }
             }
             // Work RAM
             0xC000..=0xDFFF => {
