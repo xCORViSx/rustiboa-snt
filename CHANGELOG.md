@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### In Progress
+
+- Boot ROM testing and verification
+- Performance optimization
+
+## [0.1.0] - 2025-01-30
+
 ### Added
 
 - Initial project structure with Cargo.toml and source directories
@@ -34,21 +41,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Opcode reference documentation from Pastraiser and izik1's gbops
 - Main emulation loop connecting CPU, MMU, PPU, display, and input
 - SDL2 bundled dependency configured and built successfully
-- **Complete working build** - Release binary (421KB) compiles cleanly with Rust edition 2024
+- Complete working build - Release binary (421KB) compiles cleanly with Rust edition 2024
 - Complete interrupt system with handler dispatch for all 5 interrupt types (VBlank, LCD STAT, Timer, Serial, Joypad)
 - Interrupt priority handling and IE/IF register support
 - Timer system with DIV, TIMA, TMA, TAC registers
 - 4 timer frequency modes (4096 Hz, 262144 Hz, 65536 Hz, 16384 Hz)
 - Timer overflow handling with TMA reload and interrupt generation
-- **Feature-complete emulator** ready for ROM testing
+- Feature-complete emulator ready for ROM testing
 - VS Code tasks.json with 7 build/run/test configurations
 - Comprehensive testing guide in refs/TESTING.md
 - Clippy compliance (0 warnings) with idiomatic Rust patterns
-
-### In Progress
-
-- Boot ROM testing and verification
-- Performance optimization## [0.1.0] - TBD
+- [GitHub repository](https://github.com/xCORViSx/rustiboa-snt) published
+- v0.1.0 release tagged and published
 
 ### Planned
 
