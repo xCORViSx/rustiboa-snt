@@ -101,6 +101,11 @@ fn main() {
         // Update timer based on cycles executed
         timer.tick(m_cycles, &mut mmu);
         
+        // Run OAM DMA for each M-cycle if active
+        for _ in 0..m_cycles {
+            mmu.tick_dma();
+        }
+        
         // Run PPU for corresponding T-cycles (4 T-cycles = 1 M-cycle)
         // Each M-cycle from CPU = 4 PPU dots
         for _ in 0..(m_cycles * 4) {

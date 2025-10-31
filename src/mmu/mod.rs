@@ -61,6 +61,16 @@ pub struct Mmu {
     
     /// Banking mode: false = ROM banking (default), true = RAM banking
     banking_mode: bool,
+    
+    // OAM DMA state
+    /// OAM DMA active flag - true when DMA transfer is in progress
+    dma_active: bool,
+    
+    /// OAM DMA source address (high byte, actual source is source * 0x100)
+    dma_source: u8,
+    
+    /// OAM DMA progress counter (0-159, counts bytes transferred)
+    dma_progress: u8,
 }
 
 impl Mmu {
@@ -83,6 +93,10 @@ impl Mmu {
             rom_bank: 1,
             ram_bank: 0,
             banking_mode: false,
+            // OAM DMA starts inactive
+            dma_active: false,
+            dma_source: 0,
+            dma_progress: 0,
         };
         
         // Initialize I/O registers to post-boot state
@@ -229,7 +243,14 @@ impl Mmu {
             // I/O Registers
             0xFF00..=0xFF7F => {
                 // Special handling for certain registers
-                if address == 0xFF50 && value != 0 {
+                if address == 0xFF46 {
+                    // Writing to 0xFF46 (DMA register) starts OAM DMA transfer
+                    // The value written is the source address divided by 0x100
+                    // Transfer copies 160 bytes from source to OAM (0xFE00-0xFE9F)
+                    self.dma_source = value;
+                    self.dma_active = true;
+                    self.dma_progress = 0;
+                } else if address == 0xFF50 && value != 0 {
                     // Writing to 0xFF50 disables boot ROM
                     self.boot_rom_enabled = false;
                 }
@@ -257,5 +278,41 @@ impl Mmu {
     pub fn write_word(&mut self, address: u16, value: u16) {
         self.write_byte(address, (value & 0xFF) as u8);
         self.write_byte(address.wrapping_add(1), (value >> 8) as u8);
+    }
+    
+    /// This advances OAM DMA by one M-cycle if a transfer is active.
+    /// OAM DMA transfers one byte per M-cycle from source to OAM.
+    /// The transfer takes 160 M-cycles total (160 bytes: 0xFE00-0xFE9F).
+    pub fn tick_dma(&mut self) {
+        // We check if DMA transfer is currently active
+        if !self.dma_active {
+            return;
+        }
+        
+        // We calculate the source and destination addresses for this byte
+        let source_addr = ((self.dma_source as u16) << 8) | (self.dma_progress as u16);
+        let dest_addr = 0xFE00 + (self.dma_progress as u16);
+        
+        // We read from source and write to OAM
+        // Note: We need to read directly from memory regions to avoid recursion
+        let byte = match source_addr {
+            0x0000..=0x7FFF => self.rom.get(source_addr as usize).copied().unwrap_or(0xFF),
+            0x8000..=0x9FFF => self.vram[(source_addr - 0x8000) as usize],
+            0xA000..=0xBFFF => self.eram[(source_addr - 0xA000) as usize],
+            0xC000..=0xDFFF => self.wram[(source_addr - 0xC000) as usize],
+            0xE000..=0xFDFF => self.wram[(source_addr - 0xE000) as usize],
+            _ => 0xFF,
+        };
+        
+        // We write to OAM memory
+        self.oam[self.dma_progress as usize] = byte;
+        
+        // We advance the progress counter
+        self.dma_progress += 1;
+        
+        // When we've transferred all 160 bytes, DMA is complete
+        if self.dma_progress >= 160 {
+            self.dma_active = false;
+        }
     }
 }
