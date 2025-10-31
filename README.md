@@ -34,6 +34,7 @@ Rustiboa-SNT is a Game Boy emulator implementing the Sharp LR35902 CPU (modified
   - VBlank, LCD STAT, Timer, Serial, and Joypad interrupts
   - IE/IF register support
   - Automatic handler dispatch
+  - STAT interrupts for PPU mode changes (HBlank, VBlank, OAM, LY=LYC)
 - **Timer**: Complete timer system
   - DIV register (16384 Hz)
   - TIMA/TMA/TAC registers
@@ -121,6 +122,8 @@ VS Code tasks available (`Cmd+Shift+P` → Run Task):
 
 - Some commercial ROMs (e.g., Link's Awakening) show blank screen
 - Games appear to get stuck in initialization waiting for specific hardware behavior
+- Issue likely related to CPU instruction bugs, boot ROM requirement, or very specific timing
+- Requires CPU instruction test suite or official boot ROM for further investigation
 - Currently under investigation with debug output active
 
 ## Current Limitations

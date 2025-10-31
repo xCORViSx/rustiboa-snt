@@ -9,36 +9,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
+### New Features
 
 - MBC1 memory bank controller with ROM/RAM banking and mode selection
-- PPU FIFO deadlock fix (changed condition from len>8 to !empty)
-- LCDC register initialization (0x91 - LCD enabled, BG on)
-- BGP register initialization (0xFC - palette)
-- LY register updates during PPU tick
-- LCD enable checking in PPU tick
-- STAT register updates with current PPU mode (0-3)
-- STAT register initialized to 0x81 at boot
+- STAT register updates with current PPU mode (0-3) every tick
+- STAT register initialized to 0x81 at boot (Mode 1)
 - OAM DMA implementation (0xFF46 register, 160-byte transfer in 160 M-cycles)
-- HALT wake-up behavior corrected (wakes on any enabled+pending interrupt even if IME=0)
-- DIV register (0xFF04) reset behavior fixed (writes to DIV reset it to 0)
-- Extensive debug output for ROM testing (VRAM inspection, tile fetch logging)
+- STAT interrupts for PPU mode changes (Mode 0/1/2 based on STAT enable bits)
+- HALT wake-up on any enabled+pending interrupt (even if IME=0)
+- DIV register (0xFF04) reset to 0 on any write
+- PC tracking for infinite loop detection
+- Extensive debug output for ROM testing (VRAM inspection, tile fetch logging, frame timing)
 
 ### Fixed
 
-- PPU FIFO deadlock preventing pixel rendering
+- PPU FIFO deadlock preventing pixel rendering (changed condition from len>8 to !empty)
 - Missing LCDC initialization causing LCD to be disabled
-- Missing LY register updates
+- Missing LY register updates during PPU tick
 - Missing STAT register mode updates
-- HALT not waking up CPU properly
+- HALT not waking up CPU properly on interrupts
 - DIV register not resetting on writes
+- LCDC register initialization (0x91 - LCD enabled, BG on)
+- BGP register initialization (0xFC - palette)
+- LCD enable checking in PPU tick
 - halt_bug.gb test ROM now displays correctly
 
 ### Known Issues
 
-- Link's Awakening shows blank screen - game fills tile map but never uploads tile graphics to VRAM
-- Appears to be game-specific issue or requires additional hardware features (boot ROM, more accurate timing, etc.)
-- Need to test with additional commercial ROMs to narrow down compatibility issues
+- Link's Awakening shows blank screen - game fills tile map (all 0x7F) but never uploads tile graphics to VRAM address 0x87F0
+- Game logic runs (not stuck in infinite loop) but appears waiting for specific hardware condition
+- Issue likely related to:
+  - CPU instruction implementation bugs (need test suite to verify all 512 instructions)
+  - Missing official boot ROM (game may require specific boot ROM initialization)
+  - Insufficient timing accuracy (game may need cycle-perfect PPU/CPU synchronization)
+  - Missing or incorrectly implemented hardware features
+- Requires CPU instruction test suite (Blargg's tests) or official boot ROM for further investigation
+- No other commercial ROMs available for comparison testing
 
 ## [0.1.0] - 2025-01-30
 

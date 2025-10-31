@@ -110,13 +110,19 @@ Build a cycle-accurate DMG (original Game Boy) emulator in Rust capable of runni
 
 **Next Milestone**: Achieve stable rendering for commercial games (Link's Awakening investigation)
 
-**Current Investigation**: Link's Awakening shows blank screen - game fills tile map but never uploads tile graphics. Appears stuck in initialization waiting for specific hardware behavior. Debug output active for continued investigation.
+**Current Investigation**: Link's Awakening shows blank screen - game fills tile map but never uploads tile graphics. Appears stuck in initialization waiting for specific hardware behavior. Debug output active for continued investigation. Issue likely requires:
+
+- CPU instruction test suite to verify all 512 instructions work correctly
+- Official boot ROM for proper hardware initialization
+- More accurate PPU/CPU timing
+- Additional hardware features not yet identified
 
 **Recent Completion**:
 
 - All 512 CPU instructions (256 base + 256 CB-prefixed) with proper flag handling and cycle-accurate timing
 - PPU framework with complete pixel fetcher, FIFO, background tile rendering, and VBlank interrupt
 - Complete interrupt system with priority handling for all 5 interrupt types
+- STAT interrupts for PPU mode changes (HBlank, VBlank, OAM Search)
 - Timer system with DIV, TIMA, TMA, TAC registers and 4 frequency modes
 - Main emulation loop implemented and integrated
 - SDL2 bundled build completed (2m 29s compilation time)
@@ -127,7 +133,12 @@ Build a cycle-accurate DMG (original Game Boy) emulator in Rust capable of runni
 - **Clippy clean** (0 warnings) with all auto-fixes applied
 - **MBC1 memory bank controller** implemented with ROM/RAM banking
 - **PPU FIFO deadlock fixed** - changed condition from len>8 to !empty
-- **LCDC/BGP registers initialized** - LCD enabled, background on
+- **LCDC/BGP/STAT registers initialized** - LCD enabled, background on, STAT mode tracking
 - **Test ROM verified** - halt_bug.gb displays text correctly
-- Published v0.1.0 to GitHub (premature but tagged)
+- **OAM DMA implemented** - 0xFF46 register triggers 160-byte transfer in 160 M-cycles
+- **HALT wake-up fixed** - CPU wakes on any enabled+pending interrupt even if IME=0
+- **DIV register reset** - writing to 0xFF04 properly resets it to 0
+- **STAT interrupts implemented** - Mode 0/1/2 interrupts trigger based on STAT enable bits
+- Published v0.1.0 to GitHub
+- All debugging features committed and pushed
 
