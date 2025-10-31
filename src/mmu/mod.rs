@@ -87,6 +87,7 @@ impl Mmu {
         
         // Initialize I/O registers to post-boot state
         mmu.write_byte(0xFF40, 0x91);  // LCDC: LCD on, BG on, BG tile map 9800
+        mmu.write_byte(0xFF41, 0x81);  // STAT: Mode 1 (as per DMG boot state)
         mmu.write_byte(0xFF47, 0xFC);  // BGP: Background palette
         
         mmu

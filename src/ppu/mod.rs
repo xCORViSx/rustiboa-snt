@@ -89,6 +89,10 @@ impl Ppu {
         match self.state {
             PpuState::OamSearch => {
                 // Mode 2: We scan OAM for sprites overlapping this scanline
+                // We update STAT register to show mode 2
+                let stat = mmu.read_byte(0xFF41);
+                mmu.write_byte(0xFF41, (stat & 0xFC) | 0x02);
+                
                 if self.dots >= 80 {
                     self.state = PpuState::PixelTransfer;
                     self.x = 0;
@@ -100,6 +104,10 @@ impl Ppu {
             
             PpuState::PixelTransfer => {
                 // Mode 3: We fetch tiles and push pixels to the screen
+                // We update STAT register to show mode 3
+                let stat = mmu.read_byte(0xFF41);
+                mmu.write_byte(0xFF41, (stat & 0xFC) | 0x03);
+                
                 self.fetch_pixel(mmu);
                 
                 // We try to push a pixel from FIFO to screen if we have enough
@@ -119,6 +127,10 @@ impl Ppu {
             
             PpuState::HBlank => {
                 // Mode 0: We wait until the scanline completes (456 dots total)
+                // We update STAT register to show mode 0
+                let stat = mmu.read_byte(0xFF41);
+                mmu.write_byte(0xFF41, (stat & 0xFC) | 0x00);
+                
                 if self.dots >= 456 {
                     self.dots = 0;
                     self.ly += 1;
@@ -138,6 +150,10 @@ impl Ppu {
             
             PpuState::VBlank => {
                 // Mode 1: We wait for remaining scanlines (144-153)
+                // We update STAT register to show mode 1
+                let stat = mmu.read_byte(0xFF41);
+                mmu.write_byte(0xFF41, (stat & 0xFC) | 0x01);
+                
                 if self.dots >= 456 {
                     self.dots = 0;
                     self.ly += 1;
@@ -186,6 +202,12 @@ impl Ppu {
                 let tile_map_addr = 0x9800 + (map_y * 32) + map_x;
                 self.tile_id = mmu.read_byte(tile_map_addr);
                 
+                // Debug: Show what we're fetching
+                if self.ly < 2 && self.fetcher_x < 5 {
+                    eprintln!("Line {}, fetcher_x={}: map_addr={:04X}, tile_id={:02X}", 
+                             self.ly, self.fetcher_x, tile_map_addr, self.tile_id);
+                }
+                
                 self.fetcher_step = 1;
             }
             
@@ -213,8 +235,14 @@ impl Ppu {
             }
             
             3 => {
-                // Step 3: We push 8 pixels into the FIFO (only if FIFO is empty enough)
+                // Step 3: We push 8 pixels into the FIFO (only if FIFO is empty empty enough)
                 if self.bg_fifo.len() <= 8 {
+                    // Debug: Print non-zero tiles
+                    if (self.tile_data_low != 0 || self.tile_data_high != 0) && self.ly < 10 {
+                        eprintln!("Tile ID={:02X}, data_low={:02X}, data_high={:02X}, line={}, fetcher_x={}", 
+                                 self.tile_id, self.tile_data_low, self.tile_data_high, self.ly, self.fetcher_x);
+                    }
+                    
                     // We decode the 8 pixels from the two tile data bytes
                     for bit_pos in (0..8).rev() {
                         let low_bit = (self.tile_data_low >> bit_pos) & 1;

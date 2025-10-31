@@ -9,10 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### In Progress
+### Changed
 
-- Boot ROM testing and verification
-- Performance optimization
+- MBC1 memory bank controller with ROM/RAM banking and mode selection
+- PPU FIFO deadlock fix (changed condition from len>8 to !empty)
+- LCDC register initialization (0x91 - LCD enabled, BG on)
+- BGP register initialization (0xFC - palette)
+- LY register updates during PPU tick
+- LCD enable checking in PPU tick
+- Extensive debug output for ROM testing (VRAM inspection, tile fetch logging)
+
+### Fixed
+
+- PPU FIFO deadlock preventing pixel rendering
+- Missing LCDC initialization causing LCD to be disabled
+- Missing LY register updates
+- halt_bug.gb test ROM now displays correctly
+
+### Known Issues
+
+- Link's Awakening shows blank screen - game fills tile map but never uploads tile graphics to VRAM
+- Appears to be timing/accuracy issue causing game to get stuck in initialization
+- Testing with additional commercial ROMs ongoing to narrow down issue
 
 ## [0.1.0] - 2025-01-30
 

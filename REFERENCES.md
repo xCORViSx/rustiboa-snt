@@ -41,4 +41,13 @@
 ## Pan Docs - LCD Status Registers [https://gbdev.io/pandocs/STAT.html]
 
 - Fetched on [10/29/25] for: LCD status register (STAT) implementation including LY register (current scanline 0-153), LYC register (scanline compare for interrupts), PPU mode flags in STAT, STAT interrupt conditions (LYC==LY, Mode 0/1/2), dot timing definition (1 T-cycle DMG, 2 T-cycles CGB double speed), and hardware quirks like spurious STAT interrupts
+- Fetched on [10/30/25] for: Critical debugging of Link's Awakening blank screen - discovered STAT register must be updated with current PPU mode (bits 0-1) as games read this to detect VBlank/HBlank periods and synchronize operations. Missing STAT updates cause games to hang waiting for mode transitions.
+
+## Pan Docs - Power-Up Sequence [https://gbdev.io/pandocs/Power_Up_Sequence.html]
+
+- Fetched on [10/30/25] for: Understanding hardware initialization requirements after boot ROM - STAT register should be initialized to 0x81 (DMG) or 0x85 (MGB) at PC=0x0100, confirming STAT register is essential for game operation and must reflect PPU state
+
+## Pan Docs - OAM DMA Transfer [https://gbdev.io/pandocs/OAM_DMA_Transfer.html]
+
+- Fetched on [10/30/25] for: Understanding OAM DMA transfer mechanism via 0xFF46 register - games use DMA to copy sprite data during VBlank, requires implementing DMA register and transfer logic for proper sprite rendering
 

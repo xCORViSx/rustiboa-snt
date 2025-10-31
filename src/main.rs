@@ -72,6 +72,9 @@ fn main() {
     println!("Emulator initialized!");
     println!("Controls: Arrow keys = D-pad, Z = A, X = B, Enter = Start, Shift = Select");
     
+    let mut vram_write_count = 0u64;
+    let start_time = std::time::Instant::now();
+    
     // Main emulation loop: we run CPU cycles and PPU in sync
     'running: loop {
         // Handle input events
@@ -105,6 +108,17 @@ fn main() {
             
             // When a frame is complete, we render it to the screen
             if frame_ready {
+                // Check VRAM and framebuffer content
+                vram_write_count += 1;
+                if vram_write_count <= 10 || vram_write_count % 60 == 0 {
+                    let elapsed = start_time.elapsed().as_secs_f32();
+                    let vram_has_data = mmu.read_byte(0x8000) != 0 || mmu.read_byte(0x9800) != 0;
+                    let fb_has_data = ppu.framebuffer.iter().any(|&p| p != 0);
+                    // Check tile 0x7F data (at 0x87F0)
+                    let tile_7f_data = mmu.read_byte(0x87F0);
+                    eprintln!("[{:.1}s] Frame {}, VRAM[0x8000]={:02X}, VRAM[0x9800]={:02X}, Tile 0x7F={:02X}, FB has data: {}", 
+                             elapsed, vram_write_count, mmu.read_byte(0x8000), mmu.read_byte(0x9800), tile_7f_data, fb_has_data);
+                }
                 if let Err(e) = display.render(&ppu.framebuffer) {
                     eprintln!("Render error: {}", e);
                 }

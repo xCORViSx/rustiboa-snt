@@ -106,12 +106,27 @@ VS Code tasks available (`Cmd+Shift+P` → Run Task):
 - Check
 - Clippy
 
+## Current Status
+
+**Working:**
+
+- ✓ Test ROMs like `halt_bug.gb` display correctly
+- ✓ MBC1 memory bank controller implemented
+- ✓ PPU rendering pipeline functional
+
+**Known Issues:**
+
+- Some commercial ROMs (e.g., Link's Awakening) show blank screen
+- Games appear to get stuck in initialization waiting for specific hardware behavior
+- Currently under investigation with debug output active
+
 ## Current Limitations
 
-- No MBC (Memory Bank Controller) support yet - only ROM-only cartridges work
+- Limited MBC support (MBC1 only, others in progress)
 - No audio (APU) implementation
 - No save game support
 - No Game Boy Color support
+- Timing accuracy may not be sufficient for all commercial games
 
 ## Dependencies
 

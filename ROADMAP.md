@@ -35,22 +35,22 @@ Build a cycle-accurate DMG (original Game Boy) emulator in Rust capable of runni
   - [x] I/O registers (0xFF00-0xFF7F)
   - [x] High RAM (0xFF80-0xFFFE)
 
-## Phase 3: Graphics (In Progress)
+## Phase 3: Graphics ✓
 
-- [ ] **Picture Processing Unit (PPU)**
+- [x] **Picture Processing Unit (PPU)**
   - [x] PPU state machine framework
   - [x] Framebuffer allocation
-  - [ ] Pixel fetcher with FIFO
-  - [ ] Background tile rendering
-  - [ ] Tile map and tile data handling
-  - [ ] LY register and scanline tracking
+  - [x] Pixel fetcher with FIFO
+  - [x] Background tile rendering
+  - [x] Tile map and tile data handling
+  - [x] LY register and scanline tracking
   - [ ] Sprite rendering (40 sprites, 10 per line)
   
 - [x] **Display System**
   - [x] SDL2 window setup (160x144)
   - [x] Framebuffer management
   - [x] Game Boy color palette
-  - [ ] VBlank synchronization
+  - [x] VBlank synchronization
 
 ## Phase 4: Input & Interrupts ✓
 
@@ -80,12 +80,14 @@ Build a cycle-accurate DMG (original Game Boy) emulator in Rust capable of runni
 - [x] **Cartridge Support**
   - [x] ROM file loading (.gb)
   - [x] Cartridge header parsing
-  - [ ] MBC1 support (basic banking)
+  - [x] MBC1 support (ROM/RAM banking, mode selection)
 
 ## Phase 6: Testing & Polish (In Progress)
 
 - [ ] Boot ROM verification
-- [ ] Test with commercial ROMs
+- [x] Test with test ROMs (halt_bug.gb ✓)
+- [ ] Debug commercial ROM compatibility (Link's Awakening investigation ongoing)
+- [ ] Improve timing accuracy for commercial games
 - [x] Clippy and rustfmt compliance (0 warnings)
 - [ ] Performance optimization
 - [x] Build configuration (tasks.json)
@@ -104,9 +106,11 @@ Build a cycle-accurate DMG (original Game Boy) emulator in Rust capable of runni
 
 ## Current Status
 
-**Active Phase**: Phase 6 (Testing & Polish) - Core emulator complete, ready for ROM testing
+**Active Phase**: Phase 6 (Testing & Polish) - Debugging commercial ROM compatibility
 
-**Next Milestone**: Test with DMG boot ROM to verify all components work together
+**Next Milestone**: Achieve stable rendering for commercial games (Link's Awakening investigation)
+
+**Current Investigation**: Link's Awakening shows blank screen - game fills tile map but never uploads tile graphics. Appears stuck in initialization waiting for specific hardware behavior. Debug output active for continued investigation.
 
 **Recent Completion**:
 
@@ -121,4 +125,9 @@ Build a cycle-accurate DMG (original Game Boy) emulator in Rust capable of runni
 - VS Code tasks.json with build/run/test configurations
 - Comprehensive testing documentation in refs/TESTING.md
 - **Clippy clean** (0 warnings) with all auto-fixes applied
+- **MBC1 memory bank controller** implemented with ROM/RAM banking
+- **PPU FIFO deadlock fixed** - changed condition from len>8 to !empty
+- **LCDC/BGP registers initialized** - LCD enabled, background on
+- **Test ROM verified** - halt_bug.gb displays text correctly
+- Published v0.1.0 to GitHub (premature but tagged)
 
