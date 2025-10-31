@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - STAT register updates with current PPU mode (0-3)
 - STAT register initialized to 0x81 at boot
 - OAM DMA implementation (0xFF46 register, 160-byte transfer in 160 M-cycles)
+- HALT wake-up behavior corrected (wakes on any enabled+pending interrupt even if IME=0)
+- DIV register (0xFF04) reset behavior fixed (writes to DIV reset it to 0)
 - Extensive debug output for ROM testing (VRAM inspection, tile fetch logging)
 
 ### Fixed
@@ -28,13 +30,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Missing LCDC initialization causing LCD to be disabled
 - Missing LY register updates
 - Missing STAT register mode updates
+- HALT not waking up CPU properly
+- DIV register not resetting on writes
 - halt_bug.gb test ROM now displays correctly
 
 ### Known Issues
 
 - Link's Awakening shows blank screen - game fills tile map but never uploads tile graphics to VRAM
-- Appears to be timing/accuracy issue or missing hardware feature causing game to get stuck in initialization
-- Testing with additional commercial ROMs ongoing to narrow down issue
+- Appears to be game-specific issue or requires additional hardware features (boot ROM, more accurate timing, etc.)
+- Need to test with additional commercial ROMs to narrow down compatibility issues
 
 ## [0.1.0] - 2025-01-30
 

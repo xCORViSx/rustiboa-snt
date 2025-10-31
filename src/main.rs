@@ -74,6 +74,8 @@ fn main() {
     
     let mut vram_write_count = 0u64;
     let start_time = std::time::Instant::now();
+    let mut last_pc = 0u16;
+    let mut pc_stuck_count = 0u32;
     
     // Main emulation loop: we run CPU cycles and PPU in sync
     'running: loop {
@@ -94,6 +96,21 @@ fn main() {
         
         // Check and handle any pending interrupts
         let int_cycles = interrupts::handle_interrupts(&mut cpu, &mut mmu);
+        
+        // Track if PC is stuck in a loop
+        let current_pc = cpu.registers.pc;
+        if current_pc == last_pc {
+            pc_stuck_count += 1;
+            if pc_stuck_count % 1000000 == 0 {
+                eprintln!("Warning: PC stuck at 0x{:04X} for {} iterations", current_pc, pc_stuck_count);
+            }
+        } else {
+            if pc_stuck_count > 10000 {
+                eprintln!("PC was stuck at 0x{:04X} for {} iterations, now at 0x{:04X}", last_pc, pc_stuck_count, current_pc);
+            }
+            pc_stuck_count = 0;
+            last_pc = current_pc;
+        }
         
         // Run one CPU instruction (this returns M-cycles used)
         let m_cycles = cpu.tick(&mut mmu) + int_cycles;

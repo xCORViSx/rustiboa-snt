@@ -91,7 +91,14 @@ impl Ppu {
                 // Mode 2: We scan OAM for sprites overlapping this scanline
                 // We update STAT register to show mode 2
                 let stat = mmu.read_byte(0xFF41);
-                mmu.write_byte(0xFF41, (stat & 0xFC) | 0x02);
+                let new_stat = (stat & 0xFC) | 0x02;
+                mmu.write_byte(0xFF41, new_stat);
+                
+                // Check if we should request STAT interrupt for mode 2
+                if (stat & 0x20) != 0 && (stat & 0x03) != 0x02 {
+                    // Mode 2 interrupt enabled and we just entered mode 2
+                    crate::interrupts::request_interrupt(mmu, crate::interrupts::INT_LCD_STAT);
+                }
                 
                 if self.dots >= 80 {
                     self.state = PpuState::PixelTransfer;
@@ -129,7 +136,14 @@ impl Ppu {
                 // Mode 0: We wait until the scanline completes (456 dots total)
                 // We update STAT register to show mode 0
                 let stat = mmu.read_byte(0xFF41);
-                mmu.write_byte(0xFF41, (stat & 0xFC) | 0x00);
+                let new_stat = (stat & 0xFC) | 0x00;
+                mmu.write_byte(0xFF41, new_stat);
+                
+                // Check if we should request STAT interrupt for mode 0 (HBlank)
+                if (stat & 0x08) != 0 && (stat & 0x03) != 0x00 {
+                    // Mode 0 interrupt enabled and we just entered mode 0
+                    crate::interrupts::request_interrupt(mmu, crate::interrupts::INT_LCD_STAT);
+                }
                 
                 if self.dots >= 456 {
                     self.dots = 0;
@@ -142,6 +156,12 @@ impl Ppu {
                         self.frame_ready = true;
                         // Request VBlank interrupt
                         crate::interrupts::request_interrupt(mmu, crate::interrupts::INT_VBLANK);
+                        
+                        // Also check if mode 1 (VBlank) STAT interrupt is enabled
+                        let stat = mmu.read_byte(0xFF41);
+                        if (stat & 0x10) != 0 {
+                            crate::interrupts::request_interrupt(mmu, crate::interrupts::INT_LCD_STAT);
+                        }
                     } else {
                         self.state = PpuState::OamSearch;
                     }
