@@ -28,17 +28,22 @@ const INT_JOYPAD_ADDR: u16 = 0x0060;
 /// Returns the number of cycles taken (20 if interrupt serviced, 0 otherwise).
 /// Priority order: VBlank > LCD STAT > Timer > Serial > Joypad
 pub fn handle_interrupts(cpu: &mut Cpu, mmu: &mut Mmu) -> u8 {
-    // We can only service interrupts if IME (Interrupt Master Enable) is set
-    if !cpu.ime {
-        return 0;
-    }
-    
     // We read the enabled interrupts (IE) and pending interrupts (IF)
     let ie = mmu.read_byte(0xFFFF); // Interrupt Enable register
     let if_reg = mmu.read_byte(0xFF0F); // Interrupt Flag register
     
     // We find which interrupts are both enabled and pending
     let triggered = ie & if_reg;
+    
+    // If the CPU is halted, any triggered interrupt wakes it up (even if IME is off)
+    if cpu.halted && triggered != 0 {
+        cpu.halted = false;
+    }
+    
+    // We can only service interrupts if IME (Interrupt Master Enable) is set
+    if !cpu.ime {
+        return 0;
+    }
     
     // If no interrupts are triggered, we return immediately
     if triggered == 0 {

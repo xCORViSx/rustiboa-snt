@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - BGP register initialization (0xFC - palette)
 - LY register updates during PPU tick
 - LCD enable checking in PPU tick
+- STAT register updates with current PPU mode (0-3)
+- STAT register initialized to 0x81 at boot
+- OAM DMA implementation (0xFF46 register, 160-byte transfer in 160 M-cycles)
 - Extensive debug output for ROM testing (VRAM inspection, tile fetch logging)
 
 ### Fixed
@@ -24,12 +27,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PPU FIFO deadlock preventing pixel rendering
 - Missing LCDC initialization causing LCD to be disabled
 - Missing LY register updates
+- Missing STAT register mode updates
 - halt_bug.gb test ROM now displays correctly
 
 ### Known Issues
 
 - Link's Awakening shows blank screen - game fills tile map but never uploads tile graphics to VRAM
-- Appears to be timing/accuracy issue causing game to get stuck in initialization
+- Appears to be timing/accuracy issue or missing hardware feature causing game to get stuck in initialization
 - Testing with additional commercial ROMs ongoing to narrow down issue
 
 ## [0.1.0] - 2025-01-30

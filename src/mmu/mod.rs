@@ -243,18 +243,24 @@ impl Mmu {
             // I/O Registers
             0xFF00..=0xFF7F => {
                 // Special handling for certain registers
-                if address == 0xFF46 {
+                if address == 0xFF04 {
+                    // Writing ANY value to DIV (0xFF04) resets it to 0
+                    self.io_registers[(address - 0xFF00) as usize] = 0;
+                } else if address == 0xFF46 {
                     // Writing to 0xFF46 (DMA register) starts OAM DMA transfer
                     // The value written is the source address divided by 0x100
                     // Transfer copies 160 bytes from source to OAM (0xFE00-0xFE9F)
                     self.dma_source = value;
                     self.dma_active = true;
                     self.dma_progress = 0;
+                    self.io_registers[(address - 0xFF00) as usize] = value;
                 } else if address == 0xFF50 && value != 0 {
                     // Writing to 0xFF50 disables boot ROM
                     self.boot_rom_enabled = false;
+                    self.io_registers[(address - 0xFF00) as usize] = value;
+                } else {
+                    self.io_registers[(address - 0xFF00) as usize] = value;
                 }
-                self.io_registers[(address - 0xFF00) as usize] = value;
             }
             // High RAM
             0xFF80..=0xFFFE => {

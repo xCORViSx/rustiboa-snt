@@ -23,8 +23,11 @@ Rustiboa-SNT is a Game Boy emulator implementing the Sharp LR35902 CPU (modified
   - Tile map reading from VRAM
   - Scroll support (SCX, SCY)
   - Background palette (BGP) support
+  - STAT register with PPU mode reporting
   - 160x144 resolution at 59.7 FPS
 - **Memory**: Complete memory map including boot ROM, cartridge, VRAM, and I/O registers
+  - MBC1 cartridge support (ROM/RAM banking, mode selection)
+  - OAM DMA transfer (0xFF46 register)
 - **Display**: SDL2-based rendering with authentic Game Boy color palette
 - **Input**: Joypad support (D-pad, A, B, Start, Select)
 - **Interrupts**: Full interrupt system with priority handling
