@@ -9,6 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Critical Bug Fixes
+
+- **CB instruction register encoding bug**: CB-prefixed instructions (rotate, shift, BIT, RES, SET) were using incorrect register mapping. Standard instructions encode registers as 0=A,1=B,2=C,3=D,4=E,5=H,6=L, but CB instructions use 0=B,1=C,2=D,3=E,4=H,5=L,6=(HL),7=A. Created `get_reg_cb()` and `set_reg_cb()` helper functions with correct mapping. This fix enabled test 01-special.gb to pass from failing at instruction 31,466 to matching all 1,256,633 instructions.
+
+- **Interrupt timing bug**: Interrupts were checked BEFORE instruction execution, causing interrupts set during instruction execution (such as writing to IF register) to be missed until the next loop iteration. Moved interrupt check to AFTER `cpu.tick()` so interrupts are serviced immediately after the instruction that triggers them completes.
+
+- **Timer frequency bug**: Timer frequencies were incorrectly specified in T-cycles instead of M-cycles. Corrected all timer frequencies:
+  - DIV register: 256→64 M-cycles (16384 Hz)
+  - TAC=00 (4096 Hz): 1024→256 M-cycles
+  - TAC=01 (262144 Hz): 16→4 M-cycles
+  - TAC=10 (65536 Hz): 64→16 M-cycles
+  - TAC=11 (16384 Hz): 256→64 M-cycles
+
+### Testing & Validation
+
+- Integrated [Gameboy Doctor](https://github.com/robert/gameboy-doctor) debugging tool for CPU state verification
+- Added CPU state logging (`--log` flag) outputting Game Boy Doctor format
+- Added `doctor_mode` to MMU for test consistency (LY register returns 0x90)
+- **All 3 Blargg CPU test ROMs now pass**:
+  - ✅ 01-special.gb: Passed (1,256,633 instructions match perfectly)
+  - ✅ 02-interrupts.gb: Passed
+  - ✅ 03-op_sp_hl.gb: Passed
+
 ### New Features
 
 - MBC1 memory bank controller with ROM/RAM banking and mode selection

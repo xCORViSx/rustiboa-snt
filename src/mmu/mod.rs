@@ -16,64 +16,64 @@
 // 0xFF80-0xFFFE: High RAM (HRAM)
 // 0xFFFF: Interrupt Enable register
 
-/// This struct represents all memory in the Game Boy system and routes
-/// read/write operations to the appropriate memory region
+/// This struct represents the Game Boy's Memory Management Unit which maps all
+/// memory addresses to their corresponding regions (ROM, RAM, VRAM, I/O, etc.)
 pub struct Mmu {
-    /// Boot ROM (256 bytes) - runs first then gets disabled
+    /// Optional boot ROM (256 bytes at 0x0000-0x00FF)
     boot_rom: Option<Vec<u8>>,
     
-    /// Whether boot ROM is currently enabled (starts true, switched off by writing to 0xFF50)
-    boot_rom_enabled: bool,
+    /// Whether the boot ROM is currently mapped at 0x0000-0x00FF
+    pub boot_rom_enabled: bool,
     
-    /// Cartridge ROM (loaded from .gb file)
+    /// Cartridge ROM (16KB+ depending on MBC)
     rom: Vec<u8>,
     
-    /// Video RAM - 8KB for tiles and tile maps
+    /// Video RAM (8KB at 0x8000-0x9FFF)
     vram: [u8; 0x2000],
     
-    /// External cartridge RAM - 8KB (size varies by cartridge)
+    /// External/Cartridge RAM (8KB+ depending on MBC, at 0xA000-0xBFFF)
     eram: [u8; 0x2000],
     
-    /// Work RAM - 8KB for general program use
+    /// Work RAM (8KB at 0xC000-0xDFFF)
     wram: [u8; 0x2000],
     
-    /// Object Attribute Memory - sprite data
+    /// Object Attribute Memory (160 bytes at 0xFE00-0xFE9F)
     oam: [u8; 0xA0],
     
-    /// I/O Registers - hardware control
+    /// I/O Registers (128 bytes at 0xFF00-0xFF7F)
     io_registers: [u8; 0x80],
     
-    /// High RAM - fast 127-byte RAM
+    /// High RAM (127 bytes at 0xFF80-0xFFFE)
     hram: [u8; 0x7F],
     
-    /// Interrupt Enable register
+    /// Interrupt Enable register (at 0xFFFF)
     ie: u8,
     
-    // MBC1 state
-    /// Whether RAM is enabled (0x0A in 0x0000-0x1FFF enables it)
+    // MBC1 banking state
+    /// Whether RAM is enabled for read/write
     ram_enabled: bool,
-    
-    /// ROM bank number (5 bits, 0x01-0x1F, bank 0 not selectable for 0x4000-0x7FFF)
+    /// Currently selected ROM bank (1-31)
     rom_bank: u8,
-    
-    /// RAM bank number (2 bits, 0x00-0x03) or upper bits of ROM bank in ROM banking mode
+    /// Currently selected RAM bank or upper ROM bits (0-3)
     ram_bank: u8,
-    
-    /// Banking mode: false = ROM banking (default), true = RAM banking
+    /// Banking mode: false = ROM mode, true = RAM mode
     banking_mode: bool,
     
     // OAM DMA state
-    /// OAM DMA active flag - true when DMA transfer is in progress
+    /// Whether a DMA transfer is currently active
     dma_active: bool,
-    
-    /// OAM DMA source address (high byte, actual source is source * 0x100)
-    dma_source: u8,
-    
-    /// OAM DMA progress counter (0-159, counts bytes transferred)
+    /// Source address for DMA (high byte from 0xFF46)
+    dma_source: u16,
+    /// Current progress in the DMA transfer (0-160 bytes)
     dma_progress: u8,
-}
-
-impl Mmu {
+    
+    // Serial port output for test ROM results
+    /// Accumulated serial port output (test ROMs print results here)
+    pub serial_output: String,
+    
+    /// Gameboy Doctor mode: always return 0x90 for LY register
+    pub doctor_mode: bool,
+}impl Mmu {
     /// This creates a new MMU with all memory regions initialized.
     /// The rom parameter is the cartridge data loaded from a .gb file.
     pub fn new(rom: Vec<u8>) -> Self {
@@ -97,6 +97,10 @@ impl Mmu {
             dma_active: false,
             dma_source: 0,
             dma_progress: 0,
+            // Serial port output starts empty
+            serial_output: String::new(),
+            // Gameboy Doctor mode starts disabled
+            doctor_mode: false,
         };
         
         // Initialize I/O registers to post-boot state
@@ -173,7 +177,12 @@ impl Mmu {
             0xFEA0..=0xFEFF => 0xFF,
             // I/O Registers
             0xFF00..=0xFF7F => {
-                self.io_registers[(address - 0xFF00) as usize]
+                // Special handling for LY register in Gameboy Doctor mode
+                if self.doctor_mode && address == 0xFF44 {
+                    0x90
+                } else {
+                    self.io_registers[(address - 0xFF00) as usize]
+                }
             }
             // High RAM
             0xFF80..=0xFFFE => {
@@ -243,14 +252,30 @@ impl Mmu {
             // I/O Registers
             0xFF00..=0xFF7F => {
                 // Special handling for certain registers
-                if address == 0xFF04 {
+                if address == 0xFF01 {
+                    // Serial Data (SB) - Blargg tests write ASCII characters here
+                    // We accumulate them in serial_output for test result reading
+                    self.io_registers[0x01] = value;
+                    if value >= 0x20 && value <= 0x7E {
+                        // Only accumulate printable ASCII characters
+                        self.serial_output.push(value as char);
+                    }
+                } else if address == 0xFF02 {
+                    // Serial Control (SC) - writing 0x81 triggers a transfer
+                    // For test ROMs, we just acknowledge the write
+                    self.io_registers[0x02] = value;
+                    // Clear transfer flag after "transfer" completes instantly
+                    if value & 0x80 != 0 {
+                        self.io_registers[0x02] = value & 0x7F;
+                    }
+                } else if address == 0xFF04 {
                     // Writing ANY value to DIV (0xFF04) resets it to 0
                     self.io_registers[(address - 0xFF00) as usize] = 0;
                 } else if address == 0xFF46 {
                     // Writing to 0xFF46 (DMA register) starts OAM DMA transfer
                     // The value written is the source address divided by 0x100
                     // Transfer copies 160 bytes from source to OAM (0xFE00-0xFE9F)
-                    self.dma_source = value;
+                    self.dma_source = (value as u16) << 8;  // Convert to full address
                     self.dma_active = true;
                     self.dma_progress = 0;
                     self.io_registers[(address - 0xFF00) as usize] = value;
@@ -297,7 +322,6 @@ impl Mmu {
         
         // We calculate the source and destination addresses for this byte
         let source_addr = ((self.dma_source as u16) << 8) | (self.dma_progress as u16);
-        let dest_addr = 0xFE00 + (self.dma_progress as u16);
         
         // We read from source and write to OAM
         // Note: We need to read directly from memory regions to avoid recursion
@@ -320,5 +344,12 @@ impl Mmu {
         if self.dma_progress >= 160 {
             self.dma_active = false;
         }
+    }
+    
+    /// This increments the DIV register directly without triggering the reset logic.
+    /// Used by the timer to update DIV every 256 CPU cycles.
+    pub fn increment_div(&mut self) {
+        // DIV is at 0xFF04, which maps to io_registers[0x04]
+        self.io_registers[0x04] = self.io_registers[0x04].wrapping_add(1);
     }
 }

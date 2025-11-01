@@ -10,12 +10,12 @@
 use crate::mmu::Mmu;
 use crate::interrupts;
 
-/// Timer frequencies in CPU clocks (4.194304 MHz = 4194304 Hz)
-/// These are the number of CPU cycles between TIMA increments
-const TIMER_FREQ_4096: u16 = 1024;   // 4194304 / 4096 = 1024 cycles
-const TIMER_FREQ_262144: u16 = 16;    // 4194304 / 262144 = 16 cycles
-const TIMER_FREQ_65536: u16 = 64;     // 4194304 / 65536 = 64 cycles
-const TIMER_FREQ_16384: u16 = 256;    // 4194304 / 16384 = 256 cycles
+/// Timer frequencies in M-cycles (CPU clock / 4)
+/// These are the number of M-cycles between TIMA increments
+const TIMER_FREQ_4096: u16 = 256;     // TAC=00: 4096 Hz = 256 M-cycles
+const TIMER_FREQ_262144: u16 = 4;     // TAC=01: 262144 Hz = 4 M-cycles
+const TIMER_FREQ_65536: u16 = 16;     // TAC=10: 65536 Hz = 16 M-cycles
+const TIMER_FREQ_16384: u16 = 64;     // TAC=11: 16384 Hz = 64 M-cycles
 
 /// This struct tracks the internal timer state including cycle counters
 pub struct Timer {
@@ -35,21 +35,22 @@ impl Timer {
         }
     }
     
-    /// This advances the timer by the specified number of CPU cycles,
+    /// This advances the timer by the specified number of M-cycles,
     /// updating DIV and TIMA registers and requesting timer interrupt on overflow
     pub fn tick(&mut self, cycles: u8, mmu: &mut Mmu) {
-        // Update DIV register (increments at 16384 Hz = every 256 CPU cycles)
+        // Update DIV register (increments at 16384 Hz = every 64 M-cycles)
         self.div_counter += cycles as u16;
-        if self.div_counter >= 256 {
-            self.div_counter -= 256;
-            let div = mmu.read_byte(0xFF04);
-            mmu.write_byte(0xFF04, div.wrapping_add(1));
+        if self.div_counter >= 64 {
+            self.div_counter -= 64;
+            mmu.increment_div();
         }
         
         // Check if timer is enabled (bit 2 of TAC)
         let tac = mmu.read_byte(0xFF07);
         if tac & 0x04 == 0 {
-            return; // Timer disabled
+            // Timer disabled - reset counter when disabled
+            self.tima_counter = 0;
+            return;
         }
         
         // Get timer frequency from TAC bits 0-1

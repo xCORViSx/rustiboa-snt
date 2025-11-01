@@ -20,6 +20,8 @@ mod timer;
 
 use std::env;
 use std::process;
+use std::fs::File;
+use std::io::Write;
 
 use cpu::Cpu;
 use mmu::Mmu;
@@ -30,17 +32,33 @@ use cartridge::Cartridge;
 use timer::Timer;
 
 fn main() {
-    // We parse command line arguments to get the ROM file path
+    // We parse command line arguments to get the ROM file path and optional log file
     let args: Vec<String> = env::args().collect();
     
     if args.len() < 2 {
-        eprintln!("Usage: {} <rom-file.gb>", args[0]);
+        eprintln!("Usage: {} <rom-file.gb> [--log <logfile>]", args[0]);
         eprintln!("\nRustiboa-SNT - A DMG (original Game Boy) emulator");
         eprintln!("Provide a .gb ROM file to run");
+        eprintln!("Optional: --log <logfile> to enable CPU state logging for Gameboy Doctor");
         process::exit(1);
     }
     
     let rom_path = &args[1];
+    
+    // Check for --log flag to enable CPU state logging for Gameboy Doctor
+    let mut log_file: Option<File> = None;
+    if args.len() >= 4 && args[2] == "--log" {
+        match File::create(&args[3]) {
+            Ok(file) => {
+                log_file = Some(file);
+                eprintln!("CPU logging enabled: {}", args[3]);
+            }
+            Err(e) => {
+                eprintln!("Failed to create log file: {}", e);
+                process::exit(1);
+            }
+        }
+    }
     
     println!("Rustiboa-SNT - Game Boy Emulator");
     println!("Loading ROM: {}", rom_path);
@@ -63,6 +81,21 @@ fn main() {
     let mut ppu = Ppu::new();
     let mut input = Input::new();
     let mut timer = Timer::new();
+    
+    // For Gameboy Doctor compatibility: initialize CPU state as if boot ROM finished
+    if log_file.is_some() {
+        mmu.doctor_mode = true;  // Enable special LY register handling
+        cpu.registers.a = 0x01;
+        cpu.registers.f = 0xB0;
+        cpu.registers.b = 0x00;
+        cpu.registers.c = 0x13;
+        cpu.registers.d = 0x00;
+        cpu.registers.e = 0xD8;
+        cpu.registers.h = 0x01;
+        cpu.registers.l = 0x4D;
+        cpu.registers.sp = 0xFFFE;
+        cpu.registers.pc = 0x0100;
+    }
     
     // We initialize SDL2 for display and input handling
     let sdl = sdl2::init().unwrap();
@@ -94,8 +127,26 @@ fn main() {
             }
         }
         
-        // Check and handle any pending interrupts
-        let int_cycles = interrupts::handle_interrupts(&mut cpu, &mut mmu);
+        // Log CPU state for Gameboy Doctor (before executing next instruction)
+        // Format: A:00 F:11 B:22 C:33 D:44 E:55 H:66 L:77 SP:8888 PC:9999 PCMEM:AA,BB,CC,DD
+        if let Some(ref mut file) = log_file {
+            if !cpu.halted {
+                let pc = cpu.registers.pc;
+                let pcmem0 = mmu.read_byte(pc);
+                let pcmem1 = mmu.read_byte(pc.wrapping_add(1));
+                let pcmem2 = mmu.read_byte(pc.wrapping_add(2));
+                let pcmem3 = mmu.read_byte(pc.wrapping_add(3));
+                
+                writeln!(file, "A:{:02X} F:{:02X} B:{:02X} C:{:02X} D:{:02X} E:{:02X} H:{:02X} L:{:02X} SP:{:04X} PC:{:04X} PCMEM:{:02X},{:02X},{:02X},{:02X}",
+                    cpu.registers.a, cpu.registers.f,
+                    cpu.registers.b, cpu.registers.c,
+                    cpu.registers.d, cpu.registers.e,
+                    cpu.registers.h, cpu.registers.l,
+                    cpu.registers.sp, pc,
+                    pcmem0, pcmem1, pcmem2, pcmem3
+                ).unwrap();
+            }
+        }
         
         // Track if PC is stuck in a loop
         let current_pc = cpu.registers.pc;
@@ -113,34 +164,47 @@ fn main() {
         }
         
         // Run one CPU instruction (this returns M-cycles used)
-        let m_cycles = cpu.tick(&mut mmu) + int_cycles;
+        let m_cycles = cpu.tick(&mut mmu);
+        
+        // Check and handle any pending interrupts AFTER instruction execution
+        // This ensures instructions that modify IF get their interrupts serviced immediately
+        let int_cycles = interrupts::handle_interrupts(&mut cpu, &mut mmu);
+        let total_cycles = m_cycles + int_cycles;
         
         // Update timer based on cycles executed
-        timer.tick(m_cycles, &mut mmu);
+        timer.tick(total_cycles, &mut mmu);
         
         // Run OAM DMA for each M-cycle if active
-        for _ in 0..m_cycles {
+        for _ in 0..total_cycles {
             mmu.tick_dma();
         }
         
         // Run PPU for corresponding T-cycles (4 T-cycles = 1 M-cycle)
         // Each M-cycle from CPU = 4 PPU dots
-        for _ in 0..(m_cycles * 4) {
+        for _ in 0..(total_cycles * 4) {
             let frame_ready = ppu.tick(&mut mmu);
             
             // When a frame is complete, we render it to the screen
             if frame_ready {
                 // Check VRAM and framebuffer content
                 vram_write_count += 1;
-                if vram_write_count <= 10 || vram_write_count % 60 == 0 {
-                    let elapsed = start_time.elapsed().as_secs_f32();
-                    let vram_has_data = mmu.read_byte(0x8000) != 0 || mmu.read_byte(0x9800) != 0;
-                    let fb_has_data = ppu.framebuffer.iter().any(|&p| p != 0);
-                    // Check tile 0x7F data (at 0x87F0)
-                    let tile_7f_data = mmu.read_byte(0x87F0);
-                    eprintln!("[{:.1}s] Frame {}, VRAM[0x8000]={:02X}, VRAM[0x9800]={:02X}, Tile 0x7F={:02X}, FB has data: {}", 
-                             elapsed, vram_write_count, mmu.read_byte(0x8000), mmu.read_byte(0x9800), tile_7f_data, fb_has_data);
+                
+                // Print serial output if any (Blargg test results)
+                if !mmu.serial_output.is_empty() {
+                    println!("{}", mmu.serial_output);
+                    // Clear to avoid reprinting
+                    mmu.serial_output.clear();
                 }
+                
+                // if vram_write_count <= 10 || vram_write_count % 60 == 0 {
+                //     let elapsed = start_time.elapsed().as_secs_f32();
+                //     let vram_has_data = mmu.read_byte(0x8000) != 0 || mmu.read_byte(0x9800) != 0;
+                //     let fb_has_data = ppu.framebuffer.iter().any(|&p| p != 0);
+                //     // Check tile 0x7F data (at 0x87F0)
+                //     let tile_7f_data = mmu.read_byte(0x87F0);
+                //     eprintln!("[{:.1}s] Frame {}, VRAM[0x8000]={:02X}, VRAM[0x9800]={:02X}, Tile 0x7F={:02X}, FB has data: {}", 
+                //              elapsed, vram_write_count, mmu.read_byte(0x8000), mmu.read_byte(0x9800), tile_7f_data, fb_has_data);
+                // }
                 if let Err(e) = display.render(&ppu.framebuffer) {
                     eprintln!("Render error: {}", e);
                 }

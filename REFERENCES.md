@@ -10,7 +10,17 @@
 
 - Fetched on [10/29/25] for: Detailed explanation of PPU implementation including state machine design (OAM search, pixel transfer, HBlank, VBlank), pixel fetcher architecture with FIFO, tile map reading, timing synchronization between CPU and PPU, and practical implementation guidance
 
-## GameBoy Emulation in JavaScript: The CPU [https://imrannazar.com/GameBoy-Emulation-in-JavaScript:-The-CPU]
+# REFERENCES
+
+## Gameboy Doctor [https://github.com/robert/gameboy-doctor]
+
+- Fetched on [11/01/25] for: Debugging tool that compares emulator CPU state against known-good reference logs from test ROMs. Pinpoints exact instruction where emulator diverges from correct behavior. Essential for identifying bugs in CPU instruction implementations.
+
+## SameBoy [https://github.com/LIJI32/SameBoy]
+
+- Fetched on [11/01/25] for: Highly accurate open-source Game Boy emulator in C. Passes all Blargg tests and mooneye-gb tests. Reference for correct DAA, timer, and instruction implementations when documentation is ambiguous.
+
+## Game Boy CPU (SM83) Manual [https://rgbds.gbdev.io/docs/v0.8.0/gbz80.7]
 
 - Fetched on [10/29/25] for: CPU architecture overview covering Sharp LR35902 registers (A, B, C, D, E, F, H, L, PC, SP), flags register operation (Zero, Operation, Half-carry, Carry), instruction dispatch loop design, fetch-decode-execute cycle, and memory interface patterns
 
@@ -50,4 +60,33 @@
 ## Pan Docs - OAM DMA Transfer [https://gbdev.io/pandocs/OAM_DMA_Transfer.html]
 
 - Fetched on [10/30/25] for: Understanding OAM DMA transfer mechanism via 0xFF46 register - games use DMA to copy sprite data during VBlank, requires implementing DMA register and transfer logic for proper sprite rendering
+
+## Blargg's Game Boy Test ROMs [https://gbdev.gg8.se/wiki/articles/Test_ROMs]
+
+- Fetched on [10/31/25] for: CPU instruction test suite to verify emulator accuracy - cpu_instrs.gb tests all 512 CPU instructions, outputs results via serial port (0xFF01/0xFF02), essential for identifying CPU implementation bugs
+
+## Blargg's Test ROMs GitHub Mirror [https://github.com/retrio/gb-test-roms]
+
+- Fetched on [10/31/25] for: Download source for Blargg's test ROMs (cpu_instrs.gb 64KB) - GitHub mirror of test suite with individual test files for detailed instruction verification
+
+## AWJ's Game Boy DAA Implementation [https://forums.nesdev.org/viewtopic.php?t=15944]
+
+- Fetched on [10/31/25] for: Authoritative DAA (Decimal Adjust Accumulator) algorithm reference from nesdev forums - provides the correct implementation that handles both addition and subtraction cases, explains upper nibble adjustment first to avoid temporary variables, clarifies flag behavior (Z always updated, H always cleared, C set but never cleared), and distinguishes Game Boy behavior from Z80 for edge cases with invalid BCD operands
+
+## RGBDS gbz80 Opcode Reference [https://rgbds.gbdev.io/docs/v0.5.1/gbz80.7]
+
+- Fetched on [10/31/25] for: Complete CPU instruction reference with detailed flag behavior specifications - clarified that ADD SP,e8 and LD HL,SP+e8 set H flag on overflow from bit 3 and C flag on overflow from bit 7, meaning flag calculations use the lower byte of SP added to the unsigned byte representation of the signed offset
+
+## Pan Docs - Timer and Divider Registers [https://gbdev.io/pandocs/Timer_and_Divider_Registers.html]
+
+- Fetched on [11/01/25] for: Critical timer implementation details - DIV increments at 16384 Hz (every 64 M-cycles), TIMA frequencies are: TAC=00: 256 M-cycles (4096 Hz), TAC=01: 4 M-cycles (262144 Hz), TAC=10: 16 M-cycles (65536 Hz), TAC=11: 64 M-cycles (16384 Hz). Fixed bug where timer frequencies were in T-cycles instead of M-cycles, causing test 02-interrupts.gb to fail.
+
+
+```
+
+
+````
+
+
+```
 

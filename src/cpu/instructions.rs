@@ -37,7 +37,37 @@ fn read_i8(cpu: &mut Cpu, mmu: &Mmu) -> i8 {
     read_u8(cpu, mmu) as i8
 }
 
-/// This helper gets a register value by ID
+/// This helper gets a register value by ID FOR CB INSTRUCTIONS
+/// CB instructions use different encoding: 0=B, 1=C, 2=D, 3=E, 4=H, 5=L, 6=(HL), 7=A
+fn get_reg_cb(cpu: &Cpu, reg: u8) -> u8 {
+    match reg {
+        0 => cpu.registers.b,
+        1 => cpu.registers.c,
+        2 => cpu.registers.d,
+        3 => cpu.registers.e,
+        4 => cpu.registers.h,
+        5 => cpu.registers.l,
+        7 => cpu.registers.a,
+        _ => 0,
+    }
+}
+
+/// This helper sets a register value by ID FOR CB INSTRUCTIONS
+/// CB instructions use different encoding: 0=B, 1=C, 2=D, 3=E, 4=H, 5=L, 6=(HL), 7=A
+fn set_reg_cb(cpu: &mut Cpu, reg: u8, value: u8) {
+    match reg {
+        0 => cpu.registers.b = value,
+        1 => cpu.registers.c = value,
+        2 => cpu.registers.d = value,
+        3 => cpu.registers.e = value,
+        4 => cpu.registers.h = value,
+        5 => cpu.registers.l = value,
+        7 => cpu.registers.a = value,
+        _ => {}
+    }
+}
+
+/// This helper gets a register value by ID (for non-CB instructions)
 fn get_reg(cpu: &Cpu, reg: u8) -> u8 {
     match reg {
         REG_A => cpu.registers.a,
@@ -366,11 +396,13 @@ pub fn ld_hl_sp_i8(cpu: &mut Cpu, mmu: &Mmu) -> u8 {
     let sp = cpu.registers.sp;
     let result = sp.wrapping_add(offset as u16);
     
-    // We set flags based on the addition
+    // We set flags based on the addition using the UNSIGNED byte value for flag calculation
+    // The offset is signed for the actual addition, but flags check overflow in lower byte
+    let offset_u8 = offset as u8;
     cpu.registers.set_flag_z(false);
     cpu.registers.set_flag_n(false);
-    cpu.registers.set_flag_h((sp & 0x0F) + ((offset as u16) & 0x0F) > 0x0F);
-    cpu.registers.set_flag_c((sp & 0xFF) + ((offset as u16) & 0xFF) > 0xFF);
+    cpu.registers.set_flag_h(((sp as u8) & 0x0F) + (offset_u8 & 0x0F) > 0x0F);
+    cpu.registers.set_flag_c(((sp as u8) as u16) + (offset_u8 as u16) > 0xFF);
     
     cpu.registers.set_hl(result);
     3
@@ -827,10 +859,13 @@ pub fn add_sp_i8(cpu: &mut Cpu, mmu: &Mmu) -> u8 {
     let offset = read_i8(cpu, mmu);
     let sp = cpu.registers.sp;
     
+    // We set flags based on the addition using the UNSIGNED byte value for flag calculation
+    // The offset is signed for the actual addition, but flags check overflow in lower byte
+    let offset_u8 = offset as u8;
     cpu.registers.set_flag_z(false);
     cpu.registers.set_flag_n(false);
-    cpu.registers.set_flag_h((sp & 0x0F) + ((offset as u16) & 0x0F) > 0x0F);
-    cpu.registers.set_flag_c((sp & 0xFF) + ((offset as u16) & 0xFF) > 0xFF);
+    cpu.registers.set_flag_h(((sp as u8) & 0x0F) + (offset_u8 & 0x0F) > 0x0F);
+    cpu.registers.set_flag_c(((sp as u8) as u16) + (offset_u8 as u16) > 0xFF);
     
     cpu.registers.sp = sp.wrapping_add(offset as u16);
     4
@@ -893,27 +928,38 @@ pub fn rra(cpu: &mut Cpu) -> u8 {
 }
 
 /// DAA - Decimal adjust A for BCD arithmetic
+/// This instruction adjusts register A after BCD (Binary Coded Decimal) addition/subtraction
+/// to produce a valid BCD result. Each 4-bit nibble represents one decimal digit (0-9).
+/// DAA - Decimal adjust A for BCD arithmetic
+/// This instruction adjusts register A after BCD (Binary Coded Decimal) addition/subtraction
+/// to produce a valid BCD result. Each 4-bit nibble represents one decimal digit (0-9).
 pub fn daa(cpu: &mut Cpu) -> u8 {
+    // We start with the current value of A from the previous operation
     let mut a = cpu.registers.a;
-    let mut adjust = 0;
     
-    if cpu.registers.flag_h() || (!cpu.registers.flag_n() && (a & 0x0F) > 9) {
-        adjust |= 0x06;
-    }
-    
-    if cpu.registers.flag_c() || (!cpu.registers.flag_n() && a > 0x99) {
-        adjust |= 0x60;
-        cpu.registers.set_flag_c(true);
-    }
-    
-    a = if cpu.registers.flag_n() {
-        a.wrapping_sub(adjust)
+    if !cpu.registers.flag_n() {
+        // After addition: adjust if (half-)carry occurred or if result is out of bounds
+        if cpu.registers.flag_c() || a > 0x99 {
+            a = a.wrapping_add(0x60);
+            cpu.registers.set_flag_c(true);
+        }
+        if cpu.registers.flag_h() || (a & 0x0F) > 0x09 {
+            a = a.wrapping_add(0x6);
+        }
     } else {
-        a.wrapping_add(adjust)
-    };
+        // After subtraction: only adjust if (half-)carry occurred
+        if cpu.registers.flag_c() {
+            a = a.wrapping_sub(0x60);
+        }
+        if cpu.registers.flag_h() {
+            a = a.wrapping_sub(0x6);
+        }
+    }
     
+    // These flags are always updated
     cpu.registers.set_flag_z(a == 0);
     cpu.registers.set_flag_h(false);
+    // Note: carry flag is set above if needed, never cleared
     cpu.registers.a = a;
     1
 }
@@ -1253,8 +1299,8 @@ fn execute_cb_rot_shift(cpu: &mut Cpu, mmu: &mut Mmu, op: u8, reg: u8) -> u8 {
         // (HL) operations take 4 cycles
         (mmu.read_byte(cpu.registers.hl()), 4)
     } else {
-        // Register operations take 2 cycles
-        (get_reg(cpu, reg), 2)
+        // Register operations take 2 cycles - use CB register encoding
+        (get_reg_cb(cpu, reg), 2)
     };
     
     let result = match op {
@@ -1272,7 +1318,8 @@ fn execute_cb_rot_shift(cpu: &mut Cpu, mmu: &mut Mmu, op: u8, reg: u8) -> u8 {
     if reg == 6 {
         mmu.write_byte(cpu.registers.hl(), result);
     } else {
-        set_reg(cpu, reg, result);
+        // Use CB register encoding
+        set_reg_cb(cpu, reg, result);
     }
     
     cycles
@@ -1372,7 +1419,7 @@ fn execute_cb_bit(cpu: &mut Cpu, mmu: &Mmu, bit: u8, reg: u8) -> u8 {
     let value = if reg == 6 {
         mmu.read_byte(cpu.registers.hl())
     } else {
-        get_reg(cpu, reg)
+        get_reg_cb(cpu, reg)  // Use CB register encoding
     };
     
     let result = value & (1 << bit);
@@ -1393,8 +1440,8 @@ fn execute_cb_res(cpu: &mut Cpu, mmu: &mut Mmu, bit: u8, reg: u8) -> u8 {
         mmu.write_byte(address, value & mask);
         4
     } else {
-        let value = get_reg(cpu, reg);
-        set_reg(cpu, reg, value & mask);
+        let value = get_reg_cb(cpu, reg);  // Use CB register encoding
+        set_reg_cb(cpu, reg, value & mask);  // Use CB register encoding
         2
     }
 }
@@ -1409,8 +1456,8 @@ fn execute_cb_set(cpu: &mut Cpu, mmu: &mut Mmu, bit: u8, reg: u8) -> u8 {
         mmu.write_byte(address, value | mask);
         4
     } else {
-        let value = get_reg(cpu, reg);
-        set_reg(cpu, reg, value | mask);
+        let value = get_reg_cb(cpu, reg);  // Use CB register encoding
+        set_reg_cb(cpu, reg, value | mask);  // Use CB register encoding
         2
     }
 }

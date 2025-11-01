@@ -18,6 +18,7 @@ Rustiboa-SNT is a Game Boy emulator implementing the Sharp LR35902 CPU (modified
   - Control flow instructions (jumps, calls, returns)
   - Rotate, shift, and bit manipulation operations
   - Cycle-accurate timing
+  - **✅ Passes all 3 Blargg CPU test ROMs (1.26M+ instructions verified)**
 - **PPU**: Complete pixel fetcher with FIFO and background tile rendering
   - 4-state machine (OAM Search, Pixel Transfer, HBlank, VBlank)
   - Tile map reading from VRAM
@@ -114,17 +115,35 @@ VS Code tasks available (`Cmd+Shift+P` → Run Task):
 
 **Working:**
 
-- ✓ Test ROMs like `halt_bug.gb` display correctly
-- ✓ MBC1 memory bank controller implemented
-- ✓ PPU rendering pipeline functional
+- ✅ **All 3 Blargg CPU test ROMs pass**:
+  - 01-special.gb: 1,256,633 instructions verified against Gameboy Doctor
+  - 02-interrupts.gb: Passed
+  - 03-op_sp_hl.gb: Passed
+- ✅ CPU instruction accuracy verified with systematic debugging
+- ✅ Test ROMs like `halt_bug.gb` display correctly
+- ✅ MBC1 memory bank controller implemented
+- ✅ PPU rendering pipeline functional
+- ✅ Timer system working correctly
+- ✅ Interrupt timing accurate
+
+**Recent Bug Fixes:**
+
+1. **CB Register Encoding**: Fixed incorrect register mapping in CB-prefixed instructions (rotate, shift, BIT, RES, SET). CB instructions use different encoding than standard instructions.
+2. **Interrupt Timing**: Moved interrupt check to after instruction execution, ensuring interrupts triggered during instructions are serviced immediately.
+3. **Timer Frequencies**: Corrected timer frequencies from T-cycles to M-cycles for accurate timing.
 
 **Known Issues:**
 
-- Some commercial ROMs (e.g., Link's Awakening) show blank screen
-- Games appear to get stuck in initialization waiting for specific hardware behavior
-- Issue likely related to CPU instruction bugs, boot ROM requirement, or very specific timing
-- Requires CPU instruction test suite or official boot ROM for further investigation
-- Currently under investigation with debug output active
+- Some commercial ROMs may still have compatibility issues
+- Boot ROM not yet implemented
+- APU (audio) not yet implemented
+
+**Next Steps:**
+
+- Test additional commercial ROMs with verified CPU accuracy
+- Implement boot ROM support
+- Add sprite rendering
+- Optimize performance
 
 ## Current Limitations
 
