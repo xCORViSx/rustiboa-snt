@@ -115,12 +115,15 @@ VS Code tasks available (`Cmd+Shift+P` → Run Task):
 
 **Working:**
 
-- ✅ **All 3 Blargg CPU test ROMs pass**:
+- ✅ **All 11 Blargg CPU instruction tests pass**:
   - 01-special.gb: 1,256,633 instructions verified against Gameboy Doctor
-  - 02-interrupts.gb: Passed
-  - 03-op_sp_hl.gb: Passed
+  - 02-interrupts.gb, 03-op sp,hl.gb, 04-op r,imm.gb, 05-op rp.gb
+  - 06-ld r,r.gb, 07-jr,jp,call,ret,rst.gb, 08-misc instrs.gb
+  - 09-op r,r.gb, 10-bit ops.gb, 11-op a,(hl).gb
+- ✅ **Additional passing tests**:
+  - halt_bug.gb: Display test passes
+  - instr_timing.gb: Instruction timing accurate
 - ✅ CPU instruction accuracy verified with systematic debugging
-- ✅ Test ROMs like `halt_bug.gb` display correctly
 - ✅ MBC1 memory bank controller implemented
 - ✅ PPU rendering pipeline functional
 - ✅ Timer system working correctly
@@ -133,6 +136,10 @@ VS Code tasks available (`Cmd+Shift+P` → Run Task):
 3. **Timer Frequencies**: Corrected timer frequencies from T-cycles to M-cycles for accurate timing.
 
 **Known Issues:**
+
+- interrupt_time.gb: Hangs at PC 0xC9C9 (timing precision issue)
+- mem_timing.gb: Fails 3 tests (memory access timing not cycle-accurate)
+- Some commercial ROMs may have compatibility issues
 
 - Some commercial ROMs may still have compatibility issues
 - Boot ROM not yet implemented

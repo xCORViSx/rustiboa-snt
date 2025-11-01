@@ -27,10 +27,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Integrated [Gameboy Doctor](https://github.com/robert/gameboy-doctor) debugging tool for CPU state verification
 - Added CPU state logging (`--log` flag) outputting Game Boy Doctor format
 - Added `doctor_mode` to MMU for test consistency (LY register returns 0x90)
-- **All 3 Blargg CPU test ROMs now pass**:
-  - ✅ 01-special.gb: Passed (1,256,633 instructions match perfectly)
+- **All 11 Blargg CPU instruction tests pass**:
+  - ✅ 01-special.gb: Passed (1,256,633 instructions match perfectly via Gameboy Doctor)
   - ✅ 02-interrupts.gb: Passed
-  - ✅ 03-op_sp_hl.gb: Passed
+  - ✅ 03-op sp,hl.gb: Passed
+  - ✅ 04-op r,imm.gb: Passed
+  - ✅ 05-op rp.gb: Passed
+  - ✅ 06-ld r,r.gb: Passed
+  - ✅ 07-jr,jp,call,ret,rst.gb: Passed
+  - ✅ 08-misc instrs.gb: Passed
+  - ✅ 09-op r,r.gb: Passed
+  - ✅ 10-bit ops.gb: Passed
+  - ✅ 11-op a,(hl).gb: Passed
+- **Other Blargg test results**:
+  - ✅ halt_bug.gb: Passed
+  - ✅ instr_timing.gb: Passed
+  - ❌ interrupt_time.gb: Hangs (PC stuck at 0xC9C9)
+  - ❌ mem_timing.gb: Failed 3 tests (01, 02, 03)
+  - ⚠️ oam_bug.gb: Running but incomplete
 
 ### New Features
 
