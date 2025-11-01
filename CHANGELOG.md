@@ -40,7 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - ✅ 10-bit ops.gb: Passed
   - ✅ 11-op a,(hl).gb: Passed
 - **Other Blargg test results**:
-  - ✅ halt_bug.gb: Passed
+  - ✅ halt_bug.gb: Displays correctly (visual test, no pass/fail output)
   - ✅ instr_timing.gb: Passed
   - ❌ interrupt_time.gb: Hangs (PC stuck at 0xC9C9)
   - ❌ mem_timing.gb: Failed 3 tests (01, 02, 03)

@@ -121,7 +121,7 @@ VS Code tasks available (`Cmd+Shift+P` → Run Task):
   - 06-ld r,r.gb, 07-jr,jp,call,ret,rst.gb, 08-misc instrs.gb
   - 09-op r,r.gb, 10-bit ops.gb, 11-op a,(hl).gb
 - ✅ **Additional passing tests**:
-  - halt_bug.gb: Display test passes
+  - halt_bug.gb: Displays test content correctly
   - instr_timing.gb: Instruction timing accurate
 - ✅ CPU instruction accuracy verified with systematic debugging
 - ✅ MBC1 memory bank controller implemented
